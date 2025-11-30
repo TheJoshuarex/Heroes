@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Wiki — My Hero Academia (estática)</title>
+  <style>
+    :root{--bg:#f6f7fb;--card:#ffffff;--muted:#6b7280;--accent:#0ea5a4}
+    *{box-sizing:border-box}
+    body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial;margin:0;background:var(--bg);color:#111}
+    .container{max-width:1100px;margin:28px auto;padding:16px}
+    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+    h1{font-size:22px;margin:0}
+    .controls{display:flex;gap:8px;align-items:center}
+    input[type=search]{padding:10px;border-radius:8px;border:1px solid #ddd;min-width:220px}
+    select,button{padding:8px 10px;border-radius:8px;border:1px solid #ddd;background:white;cursor:pointer}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-top:16px}
+    .card{background:var(--card);padding:12px;border-radius:10px;box-shadow:0 1px 4px rgba(16,24,40,0.06);display:flex;gap:12px;align-items:flex-start}
+    .thumb{width:72px;height:72px;border-radius:8px;object-fit:cover;background:#efefef;flex-shrink:0}
+    .meta{flex:1}
+    .heroName{font-weight:700}
+    .real{color:var(--muted);font-size:13px}
+    .small{font-size:13px;color:var(--muted);margin-top:6px}
+    .badge{display:inline-block;padding:4px 8px;border-radius:999px;border:1px solid #eee;font-size:12px;background:#fbfdfe}
+    footer{margin-top:20px;text-align:center;color:var(--muted);font-size:13px}
+
+    /* modal */
+    .modal-back{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:none;align-items:center;justify-content:center;padding:16px}
+    .modal{background:var(--card);width:900px;max-width:98%;border-radius:10px;padding:18px;display:flex;gap:16px}
+    .modal img{width:220px;height:220px;object-fit:cover;border-radius:8px}
+    .modal .info{flex:1}
+    .modal h2{margin:0 0 6px 0}
+    .tags{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+    .close{background:#fff;border:1px solid #ddd;padding:6px 8px;border-radius:8px;cursor:pointer}
+
+    /* simple responsive tweaks */
+    @media (max-width:640px){.modal{flex-direction:column;align-items:center}.modal img{width:160px;height:160px}}
+    .section-title{margin:18px 0 8px;font-size:18px}
+    .filtersRow{display:flex;gap:8px;flex-wrap:wrap}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Wiki — My Hero Academia</h1>
+      <div class="controls">
+        <input id="search" type="search" placeholder="Buscar nombre, alias, quirk, afiliación..." />
+        <select id="groupFilter">
+          <option value="all">Todos</option>
+          <option value="pro">Héroes Profesionales</option>
+          <option value="students">Estudiantes (U.A.)</option>
+          <option value="villains">Liga de Villanos / Otros</option>
+        </select>
+        <button id="clear">Limpiar</button>
+      </div>
+    </header>
+
+    <div>
+      <div class="filtersRow">
+        <div class="section-title">Resultados</div>
+      </div>
+      <div id="grid" class="grid" role="list"></div>
+    </div>
+
+
+  </div>
+
+  <!-- modal -->
+  <div id="modalBack" class="modal-back" role="dialog" aria-modal="true">
+    <div class="modal">
+      <img id="mImage" src="" alt="imagen" />
+      <div class="info">
+        <h2 id="mTitle"></h2>
+        <div class="tags" id="mTags"></div>
+        <p id="mOrigin" class="small"></p>
+        <p id="mDesc" style="margin-top:10px;line-height:1.4"></p>
+        <div style="margin-top:10px"><button class="close" id="mClose">Cerrar</button></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Datos: héroes profesionales, estudiantes y villanos (puedes ampliar)
+    const HEROES = [
+      // ---- HÉROES PROFESIONALES (más varios) ----
+      { id: 1001, name: 'Toshinori Yagi', heroName: 'All Might', quirk: 'One For All', group: 'pro', affiliation: 'Símbolo de la Paz (retirado)', origin: 'Legendario héroe y mentor.', description: 'Portador del One For All, símbolo de esperanza para la sociedad.', image: 'allmight.jpg' },
+      { id: 1002, name: 'Enji Todoroki', heroName: 'Endeavor', quirk: 'Hellflame', group: 'pro', affiliation: 'Héroe Nº1', origin: 'Héroe profesional de primera línea.', description: 'Control absoluto del fuego, gran determinación para superar sus fallos del pasado.', image: 'endeavor.jpg' },
+      { id: 1003, name: 'Keigo Takami', heroName: 'Hawks', quirk: 'Fierce Wings', group: 'pro', affiliation: 'Héroe Pro', origin: 'Reciente héroe top.', description: 'Extremadamente veloz y con habilidades de reconocimiento e infiltración.', image: 'hawks.jpg' },
+      { id: 1004, name: 'Shota Aizawa', heroName: 'Eraser Head', quirk: 'Erasure', group: 'pro', affiliation: 'Docente U.A. / Héroe Pro', origin: 'Profesor de la U.A., especialista táctico.', description: 'Puede anular quirks con la vista; instructor estricto y eficaz.', image: 'aizawa.jpg' },
+      { id: 1005, name: 'Rumi Usagiyama', heroName: 'Mirko', quirk: 'Rabbit', group: 'pro', affiliation: 'Héroe Pro', origin: 'Heroína combativa.', description: 'Agilidad y fuerza extraordinarias; conocida por su ferocidad en combate cuerpo a cuerpo.', image: 'mirko.jpg' },
+      { id: 1006, name: 'Nejire Hado', heroName: 'Nejire-chan', quirk: 'Wave Motion', group: 'pro', affiliation: 'Big Three', origin: 'Una de las tres principales estudiantes/profesionales emergentes.', description: 'Genera poderosas ondas de choque.', image: 'nejire.jpg' },
+      { id: 1007, name: 'Mirio Togata', heroName: 'Lemillion', quirk: 'Permeation', group: 'pro', affiliation: 'Ex-U.A. / Big Three', origin: 'Heroico y carismático.', description: 'Puede volverse intangible y atravesar objetos; muy valiente.', image: 'mirio.jpg' },
+      { id: 1008, name: 'Tsunagu Hakamada', heroName: 'Best Jeanist', quirk: 'Fiber Master', group: 'pro', affiliation: 'Héroe Pro', origin: 'Respetado diseñador-héroe.', description: 'Manipula fibras para control y defensa.', image: 'bestjeanist.jpg' },
+      { id: 1009, name: 'Yu Takeyama', heroName: 'Mt. Lady', quirk: 'Gigantification', group: 'pro', affiliation: 'Héroe Pro', origin: 'Popular entre la prensa.', description: 'Puede aumentar su tamaño; famosa por intervenciones públicas.', image: 'mtlady.jpg' },
+      { id: 1010, name: 'Shinya Kamihara', heroName: 'Edgeshot', quirk: 'Foldabody', group: 'pro', affiliation: 'Héroe Pro', origin: 'Especialista en ataques sorpresa.', description: 'Habilidad para plegar su cuerpo y moverse como una cuchilla.', image: 'edgesshot.jpg' },
+      
+      // ---- U.A. Estudiantes (ejemplos) ----
+      { id: 2001, name: 'Izuku Midoriya', heroName: 'Deku', quirk: 'One For All', group: 'students', affiliation: 'U.A. 1-A', origin: 'Sucesor de All Might', description: 'Protagonista y analista.', image: 'deku.jpg' },
+      { id: 2002, name: 'Katsuki Bakugō', heroName: 'Dynamight', quirk: 'Explosion', group: 'students', affiliation: 'U.A. 1-A', origin: 'Rival de Deku', description: 'Talento natural para combate ofensivo.', image: 'bakugo.jpg' },
+      { id: 2003, name: 'Shoto Todoroki', heroName: 'Shoto', quirk: 'Half-Cold Half-Hot', group: 'students', affiliation: 'U.A. 1-A', origin: 'Hijo de Endeavor', description: 'Controla fuego y hielo.', image: 'todoroki.jpg' },
+
+      // ---- VILLANOS (Liga de Villanos y aliados) ----
+      { id: 3001, name: 'Tenko Shimura', villianName: 'Tomura Shigaraki', quirk: 'Decay', group: 'villains', affiliation: 'Liga de Villanos', origin: 'Discipulo de AFO', description: 'Líder de la Liga; desintegra lo que toca con contacto directo.', image: 'shigaraki.jpg' },
+      { id: 3002, name: 'All For One', villianName: 'All For One', quirk: 'All For One', group: 'villains', affiliation: 'Núcleo del poder', origin: 'Antiguo enemigo de la sociedad de héroes', description: 'Capacidad para robar y otorgar quirks.', image: 'afo.jpg' },
+      { id: 3003, name: 'Dabi', villianName: 'Dabi', quirk: 'Blueflame', group: 'villains', affiliation: 'Liga de Villanos', origin: 'Identidad familiar complicada', description: 'Llamas azules de alta temperatura.', image: 'dabi.jpg' },
+      { id: 3004, name: 'Himiko Toga', villianName: 'Toga', quirk: 'Transform', group: 'villains', affiliation: 'Liga de Villanos', origin: 'Obsesiva y voluble', description: 'Puede imitar a otros tras ingerir su sangre.', image: 'toga.jpg' },
+      { id: 3005, name: 'Jin Bubaigawara', villianName: 'Twice', quirk: 'Doble', group: 'villains', affiliation: 'Liga de Villanos', origin: 'Miembro leal', description: 'Produce ácido corrosivo para el combate.', image: 'Twice.jpg' },
+      { id: 3006, name: 'Kurogiri', villianName: 'Kurogiri', quirk: 'Warp Gate', group: 'villains', affiliation: 'Liga de Villanos / Operativo', origin: 'Control de portales', description: 'Genera nebulosas que sirven de portales de teletransporte.', image: 'kurogiri.jpg' },
+      { id: 3007, name: 'Shuichi Iguchi', villianName: 'Spinner (alias similar)', quirk: 'Lizard', group: 'villains', affiliation: 'Liga de Villanos', origin: 'Seguidor de diseños arcaicos', description: 'Apariencia reptiliana y agilidad.', image: 'spinner.jpg' },
+      { id: 3008, name: 'Nomu', villianName: 'Nomu', quirk: 'Multi-Quirk', group: 'villains', affiliation: 'Creación de villanos', origin: 'Bio-modificado', description: 'Criaturas creadas para el combate con quirks múltiples.', image: 'nomu.jpg' },
+      { id: 3009, name: 'Gigantomachia', villianName: 'Gigantomachia', quirk: 'Titanic Strength', group: 'villains', affiliation: 'Aliado de AFO', origin: 'Gigante imparable', description: 'Fuerza y resistencia colosales; prácticamente indestructible.', image: 'giga.jpg' }
+    ];
+
+    // ---- Helpers & render ----
+    const grid = document.getElementById('grid');
+    const search = document.getElementById('search');
+    const groupFilter = document.getElementById('groupFilter');
+    const clearBtn = document.getElementById('clear');
+
+    function render(list){
+      grid.innerHTML = '';
+      if(!list.length){grid.innerHTML = '<div style="grid-column:1/-1;padding:20px;text-align:center;color:#6b7280">No hay resultados</div>';return}
+      for(const h of list){
+        const el = document.createElement('article');el.className='card';
+        el.innerHTML = `
+          <img class="thumb" loading="lazy" src="${h.image}" alt="${(h.group==='villains'?h.villianName:h.heroName)}">
+          <div class="meta">
+            <div class="heroName">${(h.group==='villains'?h.villianName:h.heroName)} <span class="real">— ${h.name}</span></div>
+            <div class="small">Quirk: <strong>${h.quirk}</strong></div>
+            <div class="small">Afiliación: <span class="badge">${h.affiliation}</span></div>
+            <div style="margin-top:8px"><button data-id="${h.id}" class="viewBtn">Ver ficha</button></div>
+          </div>
+        `;
+        grid.appendChild(el);
+      }
+      // attach listeners
+      document.querySelectorAll('.viewBtn').forEach(b=>b.onclick=(()=>openModal(parseInt(b.dataset.id))))
+    }
+
+    function filterAndRender(){
+      const q = search.value.trim().toLowerCase();
+      const group = groupFilter.value;
+      let res = HEROES.filter(h=>{
+        if(group!=='all' && h.group!==group) return false;
+        if(!q) return true;
+        return (h.name + ' ' + (h.group==='villains'?h.villianName:h.heroName) + ' ' + h.quirk + ' ' + h.affiliation).toLowerCase().includes(q);
+      });
+      // simple alphabetical sort by heroName
+      res.sort((a,b)=>(a.group==='villains'?a.villianName:a.heroName).localeCompare((b.group==='villains'?b.villianName:b.heroName)));
+      render(res);
+    }
+
+    search.addEventListener('input',filterAndRender);
+    groupFilter.addEventListener('change',filterAndRender);
+    clearBtn.addEventListener('click',()=>{search.value='';groupFilter.value='all';filterAndRender()});
+
+    // modal logic
+    const modalBack = document.getElementById('modalBack');
+    const mImage = document.getElementById('mImage');
+    const mTitle = document.getElementById('mTitle');
+    const mTags = document.getElementById('mTags');
+    const mOrigin = document.getElementById('mOrigin');
+    const mDesc = document.getElementById('mDesc');
+    document.getElementById('mClose').addEventListener('click',closeModal);
+    modalBack.addEventListener('click',e=>{ if(e.target===modalBack) closeModal() });
+
+    function openModal(id){
+      const h = HEROES.find(x=>x.id===id); if(!h) return;
+      mImage.src = h.image; mTitle.textContent = `${(h.group==='villains'?h.villianName:h.heroName)} — ${h.name}`;
+      mTags.innerHTML = '';
+      const tag1 = document.createElement('span'); tag1.className='badge'; tag1.textContent = h.group==='pro'?'Héroe Profesional':h.group==='students'?'Estudiante (U.A.)':'Villano'; mTags.appendChild(tag1);
+      const tag2 = document.createElement('span'); tag2.className='badge'; tag2.textContent = h.quirk; mTags.appendChild(tag2);
+      mOrigin.textContent = `Afiliación: ${h.affiliation} • Origen: ${h.origin}`;
+      mDesc.textContent = h.description;
+      modalBack.style.display = 'flex';
+      window.scrollTo({top:0,behavior:'smooth'});
+    }
+    function closeModal(){ modalBack.style.display='none'; }
+
+    // initial render
+    filterAndRender();
+
+    // Simple instruction to replace placeholder images: open console to see list of filenames
+    console.log('Archivos de imagen usados (reemplaza por imágenes reales en la misma carpeta):', [...new Set(HEROES.map(h=>h.image))]);
+  </script>
+</body>
+</html>
